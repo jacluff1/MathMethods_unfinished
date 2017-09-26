@@ -11,6 +11,7 @@ import matplotlib.animation as ani
 import matplotlib.animation as manimation
 import pdb
 import os
+import PDE_analytic as pa
 
 #===============================================================================
 """ auxillary functions """
@@ -59,6 +60,10 @@ directory_checker(dirname)
 
 dirname1    =   'temperature_plate/'
 directory_checker(dirname)
+
+directory_checker('diffusion')
+dirname2    =   'diffusion/time_slice/'
+directory_checker(dirname2)
 
 #===============================================================================
 """ general parameters """
@@ -213,7 +218,7 @@ def square_drum(N_lowest=10,plots=True,movies=True):
                 Z0              =   Z_tmn(0,M[i],N[i],Omega[i])
                 Zmax            =   np.max(Z0)
 
-                surf            =   ax.plot_surface(X,Y,Z0, cmap=cm.coolwarm)
+                surf            =   ax.plot_surface(X,Y,Z0, cmap=cm.seismic)
                 fig.colorbar(surf, shrink=0.5, aspect=5)
 
                 for t in T:
@@ -225,7 +230,7 @@ def square_drum(N_lowest=10,plots=True,movies=True):
                     ax.set_zlim(-1.1*Zmax, 1.1*Zmax)
                     ax.zaxis.set_major_locator(LinearLocator(10))
                     ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
-                    ax.plot_surface(X,Y,Z, cmap=cm.coolwarm, vmin=-Zmax, vmax=Zmax)
+                    ax.plot_surface(X,Y,Z, cmap=cm.seismic, vmin=-Zmax, vmax=Zmax)
                     writer.grab_frame()
 
     if movies: mk_movie()
@@ -319,16 +324,97 @@ def SS4(Z1,Z3):
     return Z1+Z3
 
 #===============================================================================
+""" 2D diffusion """
+#===============================================================================
+
+def Theta_t(t,eta=1e-3):
+
+    def Theta_nt(n,t):
+        n1  =   2*n-1
+        kn  =   n1/(2*b)
+        return (-1)**n * 4/(n1*pi) * cos(kn*pi*(b-Y)) * exp(-kn**2 * pi**2 * eta*t)
+
+    total   =   0
+    for n in np.arange(1,2*Nmax+1):
+        total   +=  Theta_nt(n,t)
+
+    return 350 + 150*total
+
+def plot_diff(t):
+
+    plt.close('all')
+    Z       =   Theta_t(t)
+    Zmax    =   np.max(Z)
+
+    fig     =   plt.figure()
+    ax      =   fig.gca(projection='3d')
+    ax.set_title('t = %.2f' % t)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlim(0, 1.1*Zmax)
+    ax.view_init(elev=10,azim=20)
+    surf    =   ax.plot_surface(X,Y,Z, cmap=cm.inferno)
+    fig.colorbar(surf, shrink=0.5, aspect=5)
+
+    # plt.show()
+    fig.savefig(dirname2+'t_%.2f.png' % t)
+    plt.close()
+
+def mk_diff_movie():
+    plt.close('all')
+
+    FFMpegWriter    =   manimation.writers['ffmpeg']
+    metadata        =   dict(title='Heat Diffusion in 2D Plate', artist='Matplotlib')
+    writer          =   FFMpegWriter(fps=15, metadata=metadata)
+
+    fig             =   plt.figure()
+    ax              =   fig.gca(projection='3d')
+
+    with writer.saving(fig, "diffusion/diffusion_animation.mp4", 100):
+        T               =   np.linspace(0,100,300)
+        Z0              =   Theta_t(0)
+        Zmax            =   np.max(Z0)
+
+        surf            =   ax.plot_surface(X,Y,Z0, cmap=cm.inferno, )
+        fig.colorbar(surf, shrink=0.5, aspect=5)
+
+        for t in T:
+            Z   =   Theta_t(t)
+            ax.clear()
+            ax.set_title('t = %.0f' % t)
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlim(200, 1.1*Zmax)
+            ax.zaxis.set_major_locator(LinearLocator(10))
+            ax.zaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            ax.plot_surface(X,Y,Z, cmap=cm.inferno, vmin=200, vmax=Zmax)
+            ax.view_init(elev=10,azim=20)
+            writer.grab_frame()
+    plt.close('all')
+
+
+
+
+
+
+
+#===============================================================================
 """ run all """
 #===============================================================================
 
 def run():
-    square_drum()
+    # square_drum()
+    #
+    # Z1  =   SS1()
+    # Z2  =   SS2(Z1)
+    # Z3  =   SS3()
+    # Z4  =   SS4(Z1,Z3)
 
-    Z1  =   SS1()
-    Z2  =   SS2(Z1)
-    Z3  =   SS3()
-    Z4  =   SS4(Z1,Z3)
+    # for t in np.linspace(0,1000,10):
+    #     plot_diff(t)
+
+    mk_diff_movie()
+
 
 
 
