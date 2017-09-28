@@ -51,26 +51,10 @@ def set_mpl_params():
 set_mpl_params()
 
 #===============================================================================
-""" setting up directories """
-#===============================================================================
-
-directory_checker('square_drum/')
-dirname     =   'square_drum/single_frequency/'
-directory_checker(dirname)
-
-dirname1    =   'temperature_plate/'
-directory_checker(dirname)
-
-directory_checker('diffusion')
-dirname2    =   'diffusion/time_slice/'
-directory_checker(dirname2)
-
-#===============================================================================
 """ general parameters """
 #===============================================================================
 
-a,b     =   1, 1
-v,ep    =   5, .2
+a,b =   1, 1
 
 X   =   np.linspace(0,a,100)
 Y   =   np.linspace(0,b,100)
@@ -80,21 +64,11 @@ Nmax    =   100
 N       =   np.arange(1,Nmax+1)
 N       =   N*2 - 1
 
-Theta0  =   350
-Theta1  =   200
-Theta3  =   400
-
-x   =   sy.symbols('x',positive=True,real=True)
-
-x0  =   sy.Rational(a,2)
-sig =   sy.Rational(a,4)
-f1  =   Theta3/sy.sqrt(2*pi*sig**2) * sy.exp(-(x-x0)**2 / (2*sig**2) )
-
-f2  =   Theta3*sy.cos( pi*(x-a/2) )
-
-
 #===============================================================================
-""" general functions """
+""" square drum """
+directory_checker('square_drum/')
+dirname     =   'square_drum/single_frequency/'
+directory_checker(dirname)
 #===============================================================================
 
 def Z_tmn(t,m,n,omega):
@@ -108,31 +82,6 @@ def Z_tmn(t,m,n,omega):
     kn      =   n*pi/b
 
     return A/(m*n) * sin(km*X) * sin(kn*Y) * cos(omega*t)
-
-def Bn1(n,theta):
-    kn  =   n*pi/a
-    return 2*theta*(1-(-1)**n) / ( n*pi*sinh(kn*b) )
-
-def Theta_n1(n,Y=Y,theta=Theta0):
-    kn  =   n*pi/a
-    return Bn1(n,theta) * sin(kn*X) * sinh(kn*Y)
-
-def Bn3(n,f):
-    kn  =   n*pi/a
-    f1  =   f * sy.sin(kn*x)
-    f2  =   sy.integrate(f1,(x,0,a))
-    bn  =   2/(a*sinh(kn*b)) * f2
-    return bn.evalf()
-
-def Theta_n3(n,f):
-    k   =   n*pi/a
-    B   =   float(Bn3(n,f))
-    Z   =   B * sin(k*X) * sinh(k*(b-Y))
-    return Z
-
-#===============================================================================
-""" square drum """
-#===============================================================================
 
 def square_drum(N_lowest=10,plots=True,movies=True):
 
@@ -239,7 +188,41 @@ def square_drum(N_lowest=10,plots=True,movies=True):
 
 #===============================================================================
 """ temperature plate """
+dirname1    =   'temperature_plate/'
+directory_checker(dirname)
+
+v,ep    =   5, .2
+Theta0  =   350
+Theta1  =   200
+Theta3  =   400
+
+x       =   sy.symbols('x',positive=True,real=True)
+x0      =   sy.Rational(a,2)
+sig     =   sy.Rational(a,4)
+f1      =   Theta3/sy.sqrt(2*pi*sig**2) * sy.exp(-(x-x0)**2 / (2*sig**2) )
+f2      =   Theta3*sy.cos( pi*(x-a/2) )
 #===============================================================================
+
+def Bn1(n,theta):
+    kn  =   n*pi/a
+    return 2*theta*(1-(-1)**n) / ( n*pi*sinh(kn*b) )
+
+def Theta_n1(n,Y=Y,theta=Theta0):
+    kn  =   n*pi/a
+    return Bn1(n,theta) * sin(kn*X) * sinh(kn*Y)
+
+def Bn3(n,f):
+    kn  =   n*pi/a
+    f1  =   f * sy.sin(kn*x)
+    f2  =   sy.integrate(f1,(x,0,a))
+    bn  =   2/(a*sinh(kn*b)) * f2
+    return bn.evalf()
+
+def Theta_n3(n,f):
+    k   =   n*pi/a
+    B   =   float(Bn3(n,f))
+    Z   =   B * sin(k*X) * sinh(k*(b-Y))
+    return Z
 
 def SS1():
     """ Theta(0,y) = Theta(a,y) = Theta(x,0) = 0, Theta(x,b) = Theta0 """
@@ -325,6 +308,9 @@ def SS4(Z1,Z3):
 
 #===============================================================================
 """ 2D diffusion """
+directory_checker('diffusion')
+dirname2    =   'diffusion/time_slice/'
+directory_checker(dirname2)
 #===============================================================================
 
 def Theta_t(t,eta=1e-3):
@@ -392,28 +378,236 @@ def mk_diff_movie():
             writer.grab_frame()
     plt.close('all')
 
+#===============================================================================
+""" Agenda 13 """
+directory_checker('Agenda13/')
+directory_checker('Agenda13/npy/')
+directory_checker('Agenda13/increasing_N')
+# directory_checker('Agenda13/increasing_z')
 
+a,b,c   =   1,1.5,1
+X       =   np.linspace(0,a,100)
+Y       =   np.linspace(0,b,100)
+Z       =   np.linspace(0,c,100)
 
+Nmax    =   6
+N       =   np.arange(1,Nmax)
+N       =   2*N - 1
 
+Yx,Zx   =   np.meshgrid(Y,Z)
+Xy,Zy   =   np.meshgrid(X,Z)
+Xz,Yz   =   np.meshgrid(X,Y)
 
+y       =   sy.symbols('y',real=True,positive=True)
+f1      =   1000 * (x - a/2)**2 - (y - b/2)**2
+f2      =   - f1
+#===============================================================================
 
+def fX(n,x):
+    return sy.sin(n * sy.pi * x / a)
+
+def fY(n,y):
+    return sy.sin(n * sy.pi * y / b)
+
+def fZ(n,z):
+    k   =   sy.sqrt( (n*sy.pi/a)**2 + (n*sy.pi/b)**2 )
+    return sy.sinh(k*z)
+
+def A_n(f,n):
+    i1  =   f * fX(n,x)
+    i2  =   sy.integrate(i1,(x,0,a)) * fY(n,y)
+    i3  =   sy.integrate(i2,(y,0,b))
+    ans =   4 * i3 / (a * b * fZ(n,c) )
+    return np.float(ans.evalf())
+
+def phi_1n(n,x,y,z):
+    kx  =   n*pi/a
+    ky  =   n*pi/b
+    k   =   np.sqrt( kx**2 + ky**2 )
+    x1  =   sin(kx*x)
+    y1  =   sin(ky*y)
+    z1  =   sinh(k*(c-z))
+    ans =   x1 * y1 * z1
+    return ans
+
+def phi_2n(n,x,y,z):
+    kx  =   n*pi/a
+    ky  =   n*pi/b
+    k   =   np.sqrt( kx**2 + ky**2 )
+    x1  =   sin(kx*x)
+    y1  =   sin(ky*y)
+    z1  =   sinh(k*z)
+    return x1 * y1 * z1
+
+def phi_n(A1,A2,n,x,y,z):
+    one =   A1 * phi_1n(n,x,y,z)
+    two =   A2 * phi_2n(n,x,y,z)
+    ans =   one * two
+    return ans
+
+def calculate_PHI_bisection():
+    # calculate PHI for plotting and movie
+    PHI_x   =   np.zeros( (100,100) )
+    PHI_y   =   np.zeros_like(PHI_x)
+    PHI_z   =   np.zeros_like(PHI_x)
+
+    Yx,Zx   =   np.meshgrid(Y,Z)
+    Xy,Zy   =   np.meshgrid(X,Z)
+    Xz,Yz   =   np.meshgrid(X,Y)
+
+    for n in N:
+        A1      =   A_n(f1,n)
+        A2      =   A_n(f2,n)
+        PHI_x   +=  phi_n(A1, A2, n, a/2, Yx,  Zx )
+        PHI_y   +=  phi_n(A1, A2, n, Xy,  b/2, Zy )
+        PHI_z   +=  phi_n(A1, A2, n, Xz,  Yz,  c/2)
+
+    np.save('Agenda13/npy/PHI_x.npy',PHI_x)
+    np.save('Agenda13/npy/PHI_y.npy',PHI_y)
+    np.save('Agenda13/npy/PHI_z.npy',PHI_z)
+
+def calculate_PHI_increasing_N():
+
+    PHI_nxy =   np.zeros( (Nmax,100,100) )
+
+    for i,n in enumerate(N):
+        print(n)
+        A1              =   A_n(f1,n)
+        A2              =   A_n(f2,n)
+        PHI_nxy[i,:,:]  =   phi_n(A1,A2,n,Xz,Yz,c/2)
+
+    np.save('Agenda13/npy/PHI_nxy.npy',PHI_nxy)
+
+def calculate_PHI_increasing_z():
+
+    PHI_zxy =   np.zeros( (100,100,100) )
+
+    for i,z in enumerate(Z):
+        print(z)
+        for n in N:
+            A1  =   A_n(f1,n)
+            A2  =   A_n(f2,n)
+            phi =   phi_n(A1,A2,n,Xz,Yz,z)
+            PHI_zxy[i,:,:]  +=  phi
+
+    np.save('Agenda13/npy/PHI_zxy.npy',PHI_zxy)
+
+def plot_phi_bisection(color=cm.Blues):
+
+    plt.close('all')
+
+    PHI_x   =   np.load('Agenda13/npy/PHI_x.npy')
+    PHI_y   =   np.load('Agenda13/npy/PHI_y.npy')
+    PHI_z   =   np.load('Agenda13/npy/PHI_z.npy')
+
+    fig =   plt.figure(figsize=(30,15))
+
+    ax1 =   fig.add_subplot(131)
+    ax1.set_title('$\phi(x = a/2,y,z)$')
+    ax1.set_xlabel('Y')
+    ax1.set_ylabel('Z')
+    ax1.set_aspect(1)
+    cf1 =   ax1.contourf(Yx,Zx,PHI_x, 100, cmap=color)
+
+    ax2 =   fig.add_subplot(132)
+    ax2.set_title('$\phi(x,b/2,z)$')
+    ax2.set_xlabel('Z')
+    ax2.set_ylabel('Y')
+    ax2.set_aspect(1)
+    cf2 =   ax2.contourf(Zy,Xy,PHI_y, 100, cmap=color)
+
+    ax2 =   fig.add_subplot(133)
+    ax2.set_title('$\phi(x,y,c/2)$')
+    ax2.set_xlabel('X')
+    ax2.set_ylabel('Y')
+    ax2.set_aspect(1)
+    cf3 =   ax2.contourf(Xz,Yz,PHI_z, 100, cmap=color)
+
+    fig.colorbar(cf1, cmap=color)
+
+    plt.tight_layout()
+
+    fig.savefig('Agenda13/bisection.png')
+
+    plt.close()
+
+def plot_phi_increasing_N(color=cm.Blues):
+
+    PHI     =   np.load('Agenda13/npy/PHI_nxy.npy')
+
+    plt.close('all')
+
+    for i,n in enumerate(N):
+
+        fig =   plt.figure()
+        ax  =   fig.add_subplot(111)
+        ax.set_title('n = %s: $\phi(x,y,c/2)$, $f_1(x,y) = (x-a/2)^2 - (y-b/2)^2$, $f_2(x,y) = -f_1(x,y)$' % n)
+        ax.set_xlim(0,a)
+        ax.set_ylim(0,b)
+        cf  =   ax.contourf(Xz,Yz,PHI[i,:,:], 100, cmap=color)
+        fig.colorbar(cf,cmap=color)
+
+        fig.savefig('Agenda13/increasing_N/N_%s.png' % n)
+        plt.close()
+
+def movie_phi_increasing_z(color=cm.Blues):
+
+    PHI     =   np.load('Agenda13/npy/PHI_zxy.npy')
+    Zmax    =   np.max(PHI)
+    Zmin    =   np.min(PHI)
+
+    plt.close('all')
+
+    FFMpegWriter    =   manimation.writers['ffmpeg']
+    metadata        =   dict(title='$\phi(x,y,z)$, $f_1(x,y) = (x-a/2)^2 - (y-b/2)^2$, $f_2(x,y) = -f_1(x,y)$', artist='Matplotlib')
+    writer          =   FFMpegWriter(fps=10, metadata=metadata)
+
+    fig =   plt.figure()
+    ax  =   fig.gca()
+
+    with writer.saving(fig, "Agenda13/increasing_z_animation.mp4", 100):
+
+        cf  =   ax.contourf(X,Y,PHI[0,:,:], 100, cmap=color, vmin=Zmin, vmax=Zmax )
+        fig.colorbar(cf)
+
+        for i,z in enumerate(Z):
+            ax.clear()
+            ax.set_title('z = %.2f: $\phi(x,y,z)$, $f_1(x,y) = (x-a/2)^2 - (y-b/2)^2$, $f_2(x,y) = -f_1(x,y)$' % z)
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            cf  =   ax.contourf(Xz,Yz,PHI[i,:,:], 100, cmap=color, vmin=Zmin, vmax=Zmax)
+            writer.grab_frame()
+
+    plt.close('all')
 
 #===============================================================================
 """ run all """
 #===============================================================================
 
 def run():
-    # square_drum()
-    #
-    # Z1  =   SS1()
-    # Z2  =   SS2(Z1)
-    # Z3  =   SS3()
-    # Z4  =   SS4(Z1,Z3)
+    square_drum()
 
-    # for t in np.linspace(0,1000,10):
-    #     plot_diff(t)
+    Z1  =   SS1()
+    Z2  =   SS2(Z1)
+    Z3  =   SS3()
+    Z4  =   SS4(Z1,Z3)
+
+    for t in np.linspace(0,1000,10):
+        plot_diff(t)
 
     mk_diff_movie()
+
+    calculate_PHI_bisection()
+    plot_phi_bisection()
+
+    calculate_PHI_increasing_N()
+    plot_phi_increasing_N()
+
+    calculate_PHI_increasing_z()
+    movie_phi_increasing_z()
+
+
+
 
 
 
