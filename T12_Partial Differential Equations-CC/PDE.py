@@ -1,7 +1,7 @@
 import sympy as sy
 from sympy.solvers import pdsolve
 import numpy as np
-from numpy import pi,sin,cos,exp,sinh
+from numpy import pi,sin,cos,exp,sinh,sqrt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -382,17 +382,16 @@ def mk_diff_movie():
 """ Agenda 13 """
 directory_checker('Agenda13/')
 directory_checker('Agenda13/npy/')
-directory_checker('Agenda13/increasing_N')
-# directory_checker('Agenda13/increasing_z')
+directory_checker('Agenda13/bisection/')
 
 a,b,c   =   1,1.5,1
 X       =   np.linspace(0,a,100)
 Y       =   np.linspace(0,b,100)
 Z       =   np.linspace(0,c,100)
 
-Nmax    =   6
+Nmax    =   5
 N       =   np.arange(1,Nmax)
-N       =   2*N - 1
+N       =   2*N-1
 
 Yx,Zx   =   np.meshgrid(Y,Z)
 Xy,Zy   =   np.meshgrid(X,Z)
@@ -403,179 +402,254 @@ f1      =   1000 * (x - a/2)**2 - (y - b/2)**2
 f2      =   - f1
 #===============================================================================
 
-def fX(n,x):
-    return sy.sin(n * sy.pi * x / a)
+def k_nm(n,m):
+    return pi * sqrt( (n/a)**2 + (m/b)**2 )
 
-def fY(n,y):
-    return sy.sin(n * sy.pi * y / b)
-
-def fZ(n,z):
-    k   =   sy.sqrt( (n*sy.pi/a)**2 + (n*sy.pi/b)**2 )
-    return sy.sinh(k*z)
-
-def A_n(f,n):
-    i1  =   f * fX(n,x)
-    i2  =   sy.integrate(i1,(x,0,a)) * fY(n,y)
+def A_nm(n,m,f):
+    i1  =   f * sy.sin(n * sy.pi * x / a)
+    i2  =   sy.integrate(i1,(x,0,a)) * sy.sin(m * sy.pi * y / b)
     i3  =   sy.integrate(i2,(y,0,b))
-    ans =   4 * i3 / (a * b * fZ(n,c) )
+    ans =   4 * i3 / (a * b * sy.sinh( k_nm(n,m) * c) )
     return np.float(ans.evalf())
 
-def phi_1n(n,x,y,z):
-    kx  =   n*pi/a
-    ky  =   n*pi/b
-    k   =   np.sqrt( kx**2 + ky**2 )
-    x1  =   sin(kx*x)
-    y1  =   sin(ky*y)
-    z1  =   sinh(k*(c-z))
+def phi_nm_1(n,m,x,y,z):
+    kx  =   n * pi / a
+    ky  =   m * pi / b
+    k   =   k_nm(n,m)
+    x1  =   sin( kx * x )
+    y1  =   sin( ky * y )
+    z1  =   sinh( k * (c-z) )
     ans =   x1 * y1 * z1
     return ans
 
-def phi_2n(n,x,y,z):
-    kx  =   n*pi/a
-    ky  =   n*pi/b
-    k   =   np.sqrt( kx**2 + ky**2 )
-    x1  =   sin(kx*x)
-    y1  =   sin(ky*y)
-    z1  =   sinh(k*z)
-    return x1 * y1 * z1
-
-def phi_n(A1,A2,n,x,y,z):
-    one =   A1 * phi_1n(n,x,y,z)
-    two =   A2 * phi_2n(n,x,y,z)
-    ans =   one * two
+def phi_nm_2(n,m,x,y,z):
+    kx  =   n * pi / a
+    ky  =   m * pi / b
+    k   =   k_nm(n,m)
+    x1  =   sin( kx * x )
+    y1  =   sin( ky * y )
+    z1  =   sinh( k * z )
+    ans =   x1 * y1 * z1
     return ans
 
-def calculate_PHI_bisection():
+def phi_nm(A1,A2,n,m,x,y,z):
+    one =   A1 * phi_nm_1(n,m,x,y,z)
+    two =   A2 * phi_nm_2(n,m,x,y,z)
+    ans =   one + two
+    return ans
+
+def calculate_PHI_nm_i():
     # calculate PHI for plotting and movie
-    PHI_x   =   np.zeros( (100,100) )
-    PHI_y   =   np.zeros_like(PHI_x)
-    PHI_z   =   np.zeros_like(PHI_x)
+    PHI_nm_x    =   np.zeros( (Nmax,Nmax,100,100) )
+    PHI_nm_y    =   np.zeros_like(PHI_nm_x)
+    # PHI_nm_z    =   np.zeros_like(PHI_nm_x)
 
     Yx,Zx   =   np.meshgrid(Y,Z)
     Xy,Zy   =   np.meshgrid(X,Z)
-    Xz,Yz   =   np.meshgrid(X,Y)
+    # Xz,Yz   =   np.meshgrid(X,Y)
 
-    for n in N:
-        A1      =   A_n(f1,n)
-        A2      =   A_n(f2,n)
-        PHI_x   +=  phi_n(A1, A2, n, a/2, Yx,  Zx )
-        PHI_y   +=  phi_n(A1, A2, n, Xy,  b/2, Zy )
-        PHI_z   +=  phi_n(A1, A2, n, Xz,  Yz,  c/2)
+    print("\nStarting PHI_nm_i")
+    for i,n in enumerate(N):
+        print("\nn:%s" % n)
+        for j,m in enumerate(N):
+            print("m:%s" % m)
+            A1      =   A_nm(n,m,f1)
+            A2      =   A_nm(n,m,f2)
+            PHI_nm_x[i,j,:,:]  =   phi_nm(A1, A2, n, m, a/2, Yx,  Zx )
+            PHI_nm_y[i,j,:,:]  =   phi_nm(A1, A2, n, m, Xy,  b/2, Zy )
+            # PHI_nm_z[i,j,:,:]  =   phi_nm(A1, A2, n, m, Xz,  Yz,  c/2)
+
+    np.save('Agenda13/npy/PHI_nm_x.npy',PHI_nm_x)
+    np.save('Agenda13/npy/PHI_nm_y.npy',PHI_nm_y)
+    # np.save('Agenda13/npy/PHI_nm_z.npy',PHI_nm_z)
+
+def calculate_PHI_xyz():
+
+    Range   =   100
+    PHI_x   =   np.zeros( (Range,100,100) )
+    PHI_y   =   np.zeros_like(PHI_x)
+    PHI_z   =   np.zeros_like(PHI_x)
+
+    print("\nStarting PHI_i")
+    for i in range(Range):
+        print("\ni:%s" % i)
+        for n in N:
+            print("\nn:%s" %n)
+            for m in N:
+                print("m:%s" % m)
+                A1  =   A_nm(n,m,f1)
+                A2  =   A_nm(n,m,f2)
+                PHI_x[i,:,:]    +=  phi_nm(A1, A2, n, m, X[i], Yx,   Zx)
+                PHI_y[i,:,:]    +=  phi_nm(A1, A2, n, m, Xy,   Y[i], Zy)
+                PHI_z[i,:,:]    +=  phi_nm(A1, A2, n, m, Xz,   Yz,   Z[i])
 
     np.save('Agenda13/npy/PHI_x.npy',PHI_x)
     np.save('Agenda13/npy/PHI_y.npy',PHI_y)
     np.save('Agenda13/npy/PHI_z.npy',PHI_z)
 
-def calculate_PHI_increasing_N():
-
-    PHI_nxy =   np.zeros( (Nmax,100,100) )
-
-    for i,n in enumerate(N):
-        print(n)
-        A1              =   A_n(f1,n)
-        A2              =   A_n(f2,n)
-        PHI_nxy[i,:,:]  =   phi_n(A1,A2,n,Xz,Yz,c/2)
-
-    np.save('Agenda13/npy/PHI_nxy.npy',PHI_nxy)
-
-def calculate_PHI_increasing_z():
-
-    PHI_zxy =   np.zeros( (100,100,100) )
-
-    for i,z in enumerate(Z):
-        print(z)
-        for n in N:
-            A1  =   A_n(f1,n)
-            A2  =   A_n(f2,n)
-            phi =   phi_n(A1,A2,n,Xz,Yz,z)
-            PHI_zxy[i,:,:]  +=  phi
-
-    np.save('Agenda13/npy/PHI_zxy.npy',PHI_zxy)
-
-def plot_phi_bisection(color=cm.Blues):
+def plot_phi_bisection(color=cm.seismic):
 
     plt.close('all')
+
+    PHI_nm_x    =   np.load('Agenda13/npy/PHI_nm_x.npy')
+    PHI_nm_y    =   np.load('Agenda13/npy/PHI_nm_y.npy')
+    # PHI_nm_z    =   np.load('Agenda13/npy/PHI_nm_z.npy')
+
+    PHI_nm_x    =   PHI_nm_x.sum(axis=0)
+    PHI_nm_y    =   PHI_nm_y.sum(axis=0)
+    # PHI_nm_z    =   PHI_nm_z.sum(axis=0)
+
+    PHI_nm_x    =   PHI_nm_x.sum(axis=0)
+    PHI_nm_y    =   PHI_nm_y.sum(axis=0)
+    # PHI_nm_z    =   PHI_nm_z.sum(axis=0)
+
+    fig =   plt.figure(figsize=(30,15))
+
+    ax1 =   fig.add_subplot(121)
+    ax1.set_title('$\phi(x = a/2,y,z)$')
+    ax1.set_xlabel('Y')
+    ax1.set_ylabel('Z')
+    ax1.set_aspect(1)
+    cf1 =   ax1.contourf(Yx,Zx,PHI_nm_x, 1000, cmap=color)
+    plt.colorbar(cf1, ax=ax1, cmap=color , shrink=.6)
+
+    ax2 =   fig.add_subplot(122)
+    ax2.set_title('$\phi(x,b/2,z)$')
+    ax2.set_xlabel('Z')
+    ax2.set_ylabel('X')
+    ax2.set_aspect(1)
+    cf2 =   ax2.contourf(Zy,Xy,PHI_nm_y, 1000, cmap=color)
+    plt.colorbar(cf2, ax=ax2, cmap=color, shrink=.8)
+
+    # ax3 =   fig.add_subplot(133)
+    # ax3.set_title('$\phi(x,y,c/2)$')
+    # ax3.set_xlabel('X')
+    # ax3.set_ylabel('Y')
+    # ax3.set_aspect(1)
+    # cf3 =   ax3.contourf(Xz,Yz,PHI_nm_z, 100, cmap=color)
+    # plt.colorbar(cf3, ax=ax3, cmap=color)
+
+    plt.tight_layout()
+
+    fig.savefig('Agenda13/bisection/total.png')
+
+    plt.close()
+
+def plot_phi_increasing_N(color=cm.seismic):
+
+    plt.close('all')
+
+    PHI_nm_x    =   np.load('Agenda13/npy/PHI_nm_x.npy')
+    PHI_nm_y    =   np.load('Agenda13/npy/PHI_nm_y.npy')
+    # PHI_nm_z    =   np.load('Agenda13/npy/PHI_nm_z.npy')
+
+    for i,n in enumerate(N):
+        for j,m in enumerate(N):
+
+            fig =   plt.figure(figsize=(30,15))
+
+            ax1 =   fig.add_subplot(121)
+            ax1.set_title('$\phi(x = a/2,y,z)$')
+            ax1.set_xlabel('Y')
+            ax1.set_ylabel('Z')
+            ax1.set_aspect(1)
+            cf1 =   ax1.contourf(Yx,Zx,PHI_nm_x[i,j,:,:], 1000, cmap=color)
+            plt.colorbar(cf1, ax=ax1, cmap=color , shrink=.6)
+
+            ax2 =   fig.add_subplot(122)
+            ax2.set_title('$\phi(x,b/2,z)$')
+            ax2.set_xlabel('Z')
+            ax2.set_ylabel('X')
+            ax2.set_aspect(1)
+            cf2 =   ax2.contourf(Zy,Xy,PHI_nm_y[i,j,:,:], 1000, cmap=color)
+            plt.colorbar(cf2, ax=ax2, cmap=color, shrink=.8)
+
+            plt.tight_layout()
+            fig.savefig('Agenda13/bisection/n_%s_m_%s.png' % (n,m) )
+            plt.close()
+
+def movie_phi_scan(color=cm.seismic):
 
     PHI_x   =   np.load('Agenda13/npy/PHI_x.npy')
     PHI_y   =   np.load('Agenda13/npy/PHI_y.npy')
     PHI_z   =   np.load('Agenda13/npy/PHI_z.npy')
 
-    fig =   plt.figure(figsize=(30,15))
+    Xmin,Xmax   =   np.min(PHI_x),np.max(PHI_x)
+    Ymin,Ymax   =   np.min(PHI_y),np.max(PHI_y)
+    Zmin,Zmax   =   np.min(PHI_z),np.max(PHI_z)
+
+    plt.close('all')
+
+    FFMpegWriter    =   manimation.writers['ffmpeg']
+    metadata        =   dict(title='f_1(x,y) = (x-a/2)^2 - (y-b/2)^2, f_2(x,y) = -f_1(x,y)', artist='Matplotlib')
+    writer          =   FFMpegWriter(fps=10, metadata=metadata)
+
+    fig =   plt.figure()
+
 
     ax1 =   fig.add_subplot(131)
     ax1.set_title('$\phi(x = a/2,y,z)$')
     ax1.set_xlabel('Y')
     ax1.set_ylabel('Z')
     ax1.set_aspect(1)
-    cf1 =   ax1.contourf(Yx,Zx,PHI_x, 100, cmap=color)
+    cf1 =   ax1.contourf(Yx,Zx,PHI_x[0,:,:], cmap=color, vmin=Xmin, vmax=Xmax)
+    # cf1 =   ax1.contourf(Yx,Zx,PHI_x[0,:,:], 1000, cmap=color, vmin=Xmin, vmax=Xmax)
+    # plt.colorbar(cf1, ax=ax1, cmap=color , shrink=.6)
 
     ax2 =   fig.add_subplot(132)
     ax2.set_title('$\phi(x,b/2,z)$')
     ax2.set_xlabel('Z')
-    ax2.set_ylabel('Y')
+    ax2.set_ylabel('X')
     ax2.set_aspect(1)
-    cf2 =   ax2.contourf(Zy,Xy,PHI_y, 100, cmap=color)
+    cf2 =   ax2.contourf(Zy,Xy,PHI_y[0,:,:], cmap=color, vmin=Xmin, vmax=Xmax)
+    # cf2 =   ax2.contourf(Zy,Xy,PHI_y[0,:,:], 1000, cmap=color, vmin=Ymin, vmax=Ymax)
+    # plt.colorbar(cf2, ax=ax2, cmap=color , shrink=.8)
 
-    ax2 =   fig.add_subplot(133)
-    ax2.set_title('$\phi(x,y,c/2)$')
-    ax2.set_xlabel('X')
-    ax2.set_ylabel('Y')
-    ax2.set_aspect(1)
-    cf3 =   ax2.contourf(Xz,Yz,PHI_z, 100, cmap=color)
-
-    fig.colorbar(cf1, cmap=color)
+    ax3 =   fig.add_subplot(133)
+    ax3.set_title('$\phi(x = a/2,y,z)$')
+    ax3.set_xlabel('X')
+    ax3.set_ylabel('Y')
+    ax3.set_aspect(1)
+    cf3 =   ax3.contourf(Xz,Yz,PHI_z[0,:,:], cmap=color, vmin=Zmin, vmax=Zmax)
+    # cf3 =   ax3.contourf(Xz,Yz,PHI_z[0,:,:], 1000, cmap=color, vmin=Zmin, vmax=Zmax)
+    # plt.colorbar(cf3, ax=ax3, cmap=color)
 
     plt.tight_layout()
 
-    fig.savefig('Agenda13/bisection.png')
-
-    plt.close()
-
-def plot_phi_increasing_N(color=cm.Blues):
-
-    PHI     =   np.load('Agenda13/npy/PHI_nxy.npy')
-
-    plt.close('all')
-
-    for i,n in enumerate(N):
-
-        fig =   plt.figure()
-        ax  =   fig.add_subplot(111)
-        ax.set_title('n = %s: $\phi(x,y,c/2)$, $f_1(x,y) = (x-a/2)^2 - (y-b/2)^2$, $f_2(x,y) = -f_1(x,y)$' % n)
-        ax.set_xlim(0,a)
-        ax.set_ylim(0,b)
-        cf  =   ax.contourf(Xz,Yz,PHI[i,:,:], 100, cmap=color)
-        fig.colorbar(cf,cmap=color)
-
-        fig.savefig('Agenda13/increasing_N/N_%s.png' % n)
-        plt.close()
-
-def movie_phi_increasing_z(color=cm.Blues):
-
-    PHI     =   np.load('Agenda13/npy/PHI_zxy.npy')
-    Zmax    =   np.max(PHI)
-    Zmin    =   np.min(PHI)
-
-    plt.close('all')
-
-    FFMpegWriter    =   manimation.writers['ffmpeg']
-    metadata        =   dict(title='$\phi(x,y,z)$, $f_1(x,y) = (x-a/2)^2 - (y-b/2)^2$, $f_2(x,y) = -f_1(x,y)$', artist='Matplotlib')
-    writer          =   FFMpegWriter(fps=10, metadata=metadata)
-
-    fig =   plt.figure()
-    ax  =   fig.gca()
-
-    with writer.saving(fig, "Agenda13/increasing_z_animation.mp4", 100):
-
-        cf  =   ax.contourf(X,Y,PHI[0,:,:], 100, cmap=color, vmin=Zmin, vmax=Zmax )
-        fig.colorbar(cf)
+    with writer.saving(fig, "Agenda13/scan_animation.mp4", 100):
 
         for i,z in enumerate(Z):
-            ax.clear()
-            ax.set_title('z = %.2f: $\phi(x,y,z)$, $f_1(x,y) = (x-a/2)^2 - (y-b/2)^2$, $f_2(x,y) = -f_1(x,y)$' % z)
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            cf  =   ax.contourf(Xz,Yz,PHI[i,:,:], 100, cmap=color, vmin=Zmin, vmax=Zmax)
+            ax1.clear()
+            ax2.clear()
+            ax3.clear()
+
+            ax1 =   fig.add_subplot(131)
+            ax1.set_title('$\phi(x = %.2f,y,z)$' % X[i])
+            ax1.set_xlabel('Y')
+            ax1.set_ylabel('Z')
+            ax1.set_aspect(1)
+            cf1 =   ax1.contourf(Yx,Zx,PHI_x[i,:,:],100, cmap=color, vmin=Xmin, vmax=Xmax)
+            ax1.xaxis.set_major_formatter(mpl.ticker.NullFormatter())
+            ax1.yaxis.set_major_formatter(mpl.ticker.NullFormatter())
+
+            ax2 =   fig.add_subplot(132)
+            ax2.set_title('$\phi(x,y = %.2f,z)$' % Y[i])
+            ax2.set_xlabel('Z')
+            ax2.set_ylabel('X')
+            cf2 =   ax2.contourf(Zy,Xy,PHI_y[i,:,:],100, cmap=color, vmin=Ymin, vmax=Ymax)
+            ax2.xaxis.set_major_formatter(mpl.ticker.NullFormatter())
+            ax2.yaxis.set_major_formatter(mpl.ticker.NullFormatter())
+
+            ax3 =   fig.add_subplot(133)
+            ax3.set_title('$\phi(x,y,z = %.2f)$' % Z[i])
+            ax3.set_xlabel('X')
+            ax3.set_ylabel('Y')
+            ax3.set_aspect(1)
+            cf3 =   ax3.contourf(Xz,Yz,PHI_z[i,:,:],100, cmap=color, vmin=Zmin, vmax=Zmax)
+            ax3.xaxis.set_major_formatter(mpl.ticker.NullFormatter())
+            ax3.yaxis.set_major_formatter(mpl.ticker.NullFormatter())
+
+            plt.tight_layout()
             writer.grab_frame()
 
     plt.close('all')
@@ -597,14 +671,11 @@ def run():
 
     mk_diff_movie()
 
-    calculate_PHI_bisection()
+    calculate_PHI_nm_i()
+    calculate_PHI_xyz()
     plot_phi_bisection()
-
-    calculate_PHI_increasing_N()
     plot_phi_increasing_N()
-
-    calculate_PHI_increasing_z()
-    movie_phi_increasing_z()
+    movie_phi_scan()
 
 
 
