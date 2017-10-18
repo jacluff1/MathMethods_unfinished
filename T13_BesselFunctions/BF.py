@@ -12,9 +12,14 @@ import matplotlib.animation as manimation
 from matplotlib import cm
 from sympy.solvers import solve
 from sympy import init_printing
+import os
+import math
+
 init_printing()
 set_mpl_params()
-home    =   "T13_BesselFunctions/"
+parent  =   "T13_BesselFunctions/"
+directory_checker(parent)
+pr  =   sy.pprint
 
 #===============================================================================
 """ Bessel Series Representation """
@@ -112,8 +117,6 @@ https://docs.scipy.org/doc/scipy/reference/special.html
 #===============================================================================
 
 def plot_fig1():
-    dirname     =   home + "plots/"
-    directory_checker(dirname)
     plt.close('all')
 
     X   =   np.linspace(0,10,100)
@@ -138,13 +141,11 @@ def plot_fig1():
 
     plt.tight_layout()
 
-    fig.savefig(dirname + "Jm_Ym.png")
+    fig.savefig(parent + "Jm_Ym.png")
     plt.close()
-    print("plot saved to /plots/Jm_Ym.png")
+    print("plot saved to /T13_BesselFunctions/Jm_Ym.png")
 
 def plot_fig2():
-    dirname     =   home + "plots/"
-    directory_checker(dirname)
     plt.close('all')
 
     X   =   np.linspace(0,5,100)
@@ -170,9 +171,9 @@ def plot_fig2():
 
     plt.tight_layout()
 
-    fig.savefig(dirname + "Im_Km.png")
+    fig.savefig(parent + "Im_Km.png")
     plt.close()
-    print("plot saved to /plots/Im_Km.png")
+    print("plot saved to /T13_BesselFunctions/Im_Km.png")
 
 #===============================================================================
 """ Problem 2 """
@@ -209,12 +210,13 @@ def Z_t(Amn,m,n,t):
 
 # exercise 51
 def exercise_51():
+    print("\nExercise 51")
     for i in range(N_lowest):
         print("omega[%s,%s] = %s" % (M[i],N[i],Omega[i]) )
 
 def exercise_52(color=cm.seismic):
+    print("\nExercise 52")
 
-    parent  =   'T13_BesselFunctions/plots/'
     home    =   parent + 'exercise_52/'
     directory_checker(parent)
     directory_checker(home)
@@ -239,17 +241,24 @@ def exercise_52(color=cm.seismic):
         surf    =   ax.plot_surface(X,Y,Z, cmap=color)
         # fig.colorbar(surf, cmap=color, shrink=.8)
 
-        fig.savefig(home + 'm_%s_n_%s.png' % (m,n))
+        name    =   home + 'm_%s_n_%s.png' % (m,n)
+        fig.savefig(name)
         plt.close()
+        print("saved figure to %s" % name)
 
     for i in range(6):
         plot_mn(i)
 
-def problem_2(color=cm.seismic):
+def problem_2(modes=5,fpm=50,color=cm.seismic):
+    """
+    args
+    ----
+    modes:  The number of modes that will be in the movies
+    fpm:    frames per mode
+    color:  the color scheme for the images and movies
+    """
 
-    parent  =   'T13_BesselFunctions/plots/'
     home    =   parent + 'Problem2/'
-    directory_checker(parent)
     directory_checker(home)
 
     def solve_boundary():
@@ -314,34 +323,68 @@ def problem_2(color=cm.seismic):
         return An
 
     def mk_array_single():
+        print("\nstarting Z_ntxy creation...")
+        # calculate coefficient function
         An  =   solve_boundary()
         def A_n(n):
             return An(a,d,v,omega[0,n],zeta[0,n]).evalf()
 
-        Z   =   np.zeros( (5,100,100,100) ) # n , t , x , y
-        for n in range(nmax):
-            period  =   2 * np.pi / omega[0,n]
-            T   =   np.linspace(0,period,100)
-            A   =   A_n(n)
-            for t in T:
-                Z[n,t,:,:]  =   Z_t(A,0,n,t)
-        np.save(home+'Z_ntxy.npy',Z)
+        # make empty drum head height array w/ indecies (mode, time, x, y)
+        Z_ntxy  =   np.zeros( ( modes , fpm , 100 , 100 ) )
+        T       =   np.zeros( ( modes , fpm ) )
+
+        for n in range(modes):
+
+            print("\nmode: %s/%s..." % (n+1,modes) )
+            omega_n =   omega[0,n]
+            T_n     =   np.linspace(0 , 2*np.pi/omega_n , fpm)
+            T[n,:]  =   T_n
+            A       =   A_n(n)
+
+            for ti,time in enumerate(T_n):
+                print("time index: %s/%s... " % (ti+1,fpm) )
+                Z_ntxy[n,ti,:,:]    =   Z_t(A,0,n,time)
+
+        print("\nsaving arrays to %s" % home)
+        np.save(home + 'Z_ntxy.npy', Z_ntxy)
+        np.save(home + 'T_ntxy.npy', T)
 
     def mk_array_multiple():
+        print("\nstarting Z_txy creation...")
+        # calculate coefficient function
+        An  =   solve_boundary()
+        def A_n(n):
+            return An(a,d,v,omega[0,n],zeta[0,n]).evalf()
 
-        if os.path.isfile('Z_ntxy.npy') == False:
-            mk_array_single()
-        Z_ntxy  =   np.load('Z_ntxy.npy')
-        Z_txy   =   np.sum(Z_ntxy, axis=0)
-        np.save('Z_txy.npy')
+        omega0  =   omega[0,:modes]
+        T0      =   2*np.pi / omega0
+        Tmin    =   np.min(T0)
+        Tmax    =   np.max(T0)
+        factor  =   math.ceil( Tmax/Tmin)
+        print("factor: %s" % factor)
+        # pdb.set_trace()
+
+        T       =   np.linspace(0, factor*Tmin, factor*fpm)
+        Z_txy   =   np.zeros( (factor*fpm,100,100) )
+
+        for it,time in enumerate(T):
+            print("\ntime index: %s/%s..." % (it+1,factor*fpm) )
+            for n in range(modes):
+                print("mode: %s/%s..." % (n+1,modes) )
+                A   =   A_n(n)
+                Z_txy[it,:,:]   +=  Z_t(A,0,n,time)
+
+        print("\nsaving arrays to %s" % home)
+        np.save(home + "Z_txy.npy", Z_txy)
+        np.save(home + "T_txy.npy", T)
 
     def plot_single_modes():
 
         home1   =   home + 'single_modes/'
         directory_checker(home1)
-        if os.path.isfile('Z_ntxy.npy') == False:
+        if os.path.isfile(home + 'Z_ntxy.npy') == False:
             mk_array_single()
-        Z_ntxy  =   np.load('Z_ntxy.npy')
+        Z_ntxy  =   np.load(home + 'Z_ntxy.npy')
 
         def plot_single(n):
 
@@ -362,263 +405,165 @@ def problem_2(color=cm.seismic):
             fig.savefig(home1 + 'm_0_n_%s.png' % (n))
             plt.close()
 
-        for n in range(nmax): plot_single(n)
+        for n in range(modes): plot_single(n)
 
     def mk_movie_single_modes():
 
-        if os.path.isfile('Z_ntxy.npy') == False:
-            mk_array_single()
-        Z_ntxy  =   np.load('Z_ntxy.npy')
+        print("\nstarting single modes...")
+        if os.path.isfile(home + 'Z_ntxy.npy') == False: mk_array_single()
+        Z_ntxy  =   np.load(home + 'Z_ntxy.npy') # [n,t,x,y]
+        T       =   np.load(home + 'T_ntxy.npy') # [n,t]
+        print("loaded arrays")
 
         plt.close('all')
         FFMpegWriter    =   manimation.writers['ffmpeg']
         metadata        =   dict(title='Problem 2: Circular Drum', artist='Matplotlib')
-        writer          =   FFMpegWriter(fps=10, metadata=metadata)
+        writer          =   FFMpegWriter(fps=40, metadata=metadata)
 
         fig             =   plt.figure()
         ax              =   fig.gca(projection='3d')
 
-        for n in range(nmax):
+        with writer.saving(fig, home+"single_modes_animation.mp4", 100):
 
-            fig.clear()
-            ax      =   fig.gca(projection='3d')
+            for n in range(modes):
+                print("\nmode: %s/%s..." % (n+1,modes) )
 
-            Zn0     =   Z_ntxy[n,0,:,:]
-            Zmax    =   np.max(Zn0)
+                fig.clear()
+                ax      =   fig.gca(projection='3d')
 
-            surf            =   ax.plot_surface(X,Y,Z0n, cmap=color, vmin=-Zmax, vmax=Zmax)
-            fig.colorbar(surf, shrink=0.5)
+                Zn0     =   Z_ntxy[n,0,:,:]
+                Zmax    =   np.max(Zn0)
 
-            with writer.saving(fig, home+"problem2_single_modes_animation.mp4", 100):
+                surf            =   ax.plot_surface(X,Y,Zn0, cmap=color, vmin=-Zmax, vmax=Zmax)
+                fig.colorbar(surf, shrink=0.5)
 
-                for t in range(100):
+                for it,time in enumerate(T[n,:]):
+                    print("time index: %s/%s..." % (it+1,fpm))
                     ax.clear()
-                    ax.set_title('n = %s' % n)
+                    ax.set_title('n:%s , t:%.2f' % (n,time) )
                     ax.set_xticks([])
                     ax.set_yticks([])
                     ax.set_zticks([0])
                     ax.set_zlim(-Zmax,Zmax)
-                    ax.plot_surface(X,Y,Z_ntxy[n,t,:,:], cmap=color, vmin=-Zmax, vmax=Zmax)
+                    ax.plot_surface(X,Y,Z_ntxy[n,it,:,:], cmap=color, vmin=-Zmax, vmax=Zmax)
                     writer.grab_frame()
+        plt.close()
+        print("finished")
 
     def mk_movie_multiple_modes():
 
-        if os.path.isfile('Z_txy.npy') == False:
-            mk_array_multiple()
-        Z_txy   =   np.load('Z_txy.npy')
+        print("\nstarted multiple modes...")
+        if os.path.isfile(home + 'Z_txy.npy') == False: mk_array_multiple()
+        Z_txy   =   np.load(home + 'Z_txy.npy')
+        T       =   np.load(home + 'T_txy.npy')
+        print("loaded arrays")
 
         plt.close('all')
         FFMpegWriter    =   manimation.writers['ffmpeg']
         metadata        =   dict(title='Problem 2: Circular Drum', artist='Matplotlib')
-        writer          =   FFMpegWriter(fps=10, metadata=metadata)
+        writer          =   FFMpegWriter(fps=40, metadata=metadata)
 
         Z0      =   Z_txy[0,:,:]
         Zmax    =   np.max(Z0)
 
-        fig =   plt.figure()
-        ax  =   fig.gca(projection='3d')
+        fig     =   plt.figure()
+        ax      =   fig.gca(projection='3d')
+        surf    =   ax.plot_surface(X,Y,Z0, cmap=color, vmin=-Zmax, vmax = Zmax)
+        fig.colorbar(surf, shrink=.8)
 
-        with writer.saving(fig, home+"problem2_multiple_modes_animation.mp4", 100):
+        with writer.saving(fig, home+"multiple_modes_animation.mp4", 100):
 
-            for t in range(100):
+            for it,time in enumerate(T):
+                print("time index: %s/%s" % (it+1,len(T)) )
                 ax.clear()
-                ax.set_title('t$_i$ = %s' % t)
+                ax.set_title('t:%.2f' % time)
                 ax.set_xticks([])
                 ax.set_yticks([])
                 ax.set_zticks([0])
                 ax.set_zlim(-Zmax,Zmax)
-                ax.plot_surface(X,Y,Zt, cmap=color, vmin=-Zmax, vmax=Zmax)
+                ax.plot_surface(X,Y,Z_txy[it,:,:], cmap=color, vmin=-Zmax, vmax=Zmax)
                 writer.grab_frame()
+        plt.close()
+        print("finished...")
 
-    plot_single_modes()
-    mk_movie_single_modes()
+    # plot_single_modes()
+    # mk_movie_single_modes()
     mk_movie_multiple_modes()
 
 #===============================================================================
 """ my own problem """
 # initial condition constants
-rho0    =   a/2
-phi0    =   sy.pi/4
-sigma   =   a/3
-epsilon =   a/5
+constsants  =   {'a':1, 'rho0':1/2, 'phi0':np.pi/4, 'sigma':1/3, 'epsilon':1/5}
 #===============================================================================
 
-def my_problem():
+# def my_problem():
+#
+#     home    =   parent + 'My_Problem/'
+#     directory_checker(parent)
+#     directory_checker(home)
+#
+#     """ conditions """
+#     # 1) Z(rho=a,phi,t)        = 0
+#     # 2) dZ/drho (rho=a,phi,t) = 0
+#     # 3) Zdot(rho,phi,t=0)     = 0
+#     # 4) Z(rho,phi,t=0)        = -A0 Jm( omega_00 (rho-rho0) / v ) cos( m (phi-phi0) )
+#
+#     def solve_boundary():
+#
+#         """ set up expression """
+#         # indecies
+#         m,n =   sy.symbols('m n',integer=True,positive=True)
+#         # constants
+#         phim,v,a,rho0,phi0,sigma,epsilon    =   sy.symbols('phi_m v a rho_0 phi_0 sigma epsilon', real=True,positive=True)
+#         # variables
+#         rho,phi,t,omega1,omega2 =   sy.symbols('rho phi t omega omega_0',real=True,positive=True)
+#         # Functions
+#         A   =   sy.symbols('A',real=True)
+#         J   =   besselj(m,omega1*rho/v)
+#         Z   =   A * J * sy.cos(m*phi) * sy.cos(omega1*t + phim)
+#         Z0  =   epsilon * besselj(2,omega2*rho/v) * sy.cos(2*phi)
+#
+#         """ plug in condition 3 """
+#         lhs     =   Z.diff(t)
+#         lhs     =   lhs.subs(t,0)
+#         eq      =   sy.Eq( lhs , 0 )
+#         phim1   =   solve(eq,phim)
+#         Z       =   Z.subs(phim, m*sy.pi)
+#
+#         """ plug in condition 4 """
+#         lhs     =   Z.subs(t,0)
+#         rhs     =   Z0
+#         # do othogonal cosine integral
+#         m1      =   sy.symbols('m_1', integer=True, positive=True)
+#         f       =   sy.cos(m1*phi)
+#         limits  =   (phi,0,2*sy.pi)
+#         lhs     =   sy.integrate(lhs*f,limits)
+#         rhs     =   sy.integrate(rhs*f,limits)
+#         lhs     =   lhs.subs(m1,m)
+#         lhs     =   lhs.subs(m,2)
+#         rhs     =   rhs.subs(m1,2)
+#         # do an orthoganal bessel function integral
+#         omega2  =   sy.symbols('omega_2',integer=True,positive=True)
+#         f       =   rho * besselj(2,omega2*rho/v)
+#         limits  =   (rho,0,a)
+#         lhs     =   sy.integrate(lhs*f,limits)
+#         rhs     =   sy.integrate(rhs*f,limits)
+#
+#     solve_boundary()
 
-    parent  =   'T13_BesselFunctions/plots/'
-    home    =   parent + 'My_Problem/'
-    directory_checker(parent)
-    directory_checker(home)
 
-    """ conditions """
-    # 1) Z(rho=a,phi,t)        = 0
-    # 2) dZ/drho (rho=a,phi,t) = 0
-    # 3) Zdot(rho,phi,t=0)     = 0
-    # 4) Z(rho,phi,t=0)        = -A0 Jm( omega_00 (rho-rho0) / v ) cos( m (phi-phi0) )
+#===============================================================================
+""" run module """
+#===============================================================================
 
-    # def solve_boundary():
-    #
-    #     """ set up expression """
-    #     # indecies
-    #     m,n =   sy.symbols('m n',integer=True)
-    #     # constants
-    #     phim,a,d,v  =   sy.symbols('phi_m a d v', real=True)
-    #     # variables
-    #     rho,phi,t,omega,x   =   sy.symbols('rho phi t omega x',real=True,positive=True)
-    #     # Functions
-    #     # A   =   sy.Function('A')(m,n)
-    #     A   =   sy.symbols('A',real=True)
-    #     J   =   besselj(m,omega*rho/v)
-    #     Z   =   A * J * sy.cos(m*phi) * sy.cos(omega*t + phim)
-    #
-    #     """ solve first initial condition Zdot(rho,phi,t=0) = 0 """
-    #     # find the left hand side - time derivative of Z
-    #     lhs =   sy.diff( Z , t )
-    #     # set t = 0
-    #     lhs =   lhs.subs(t,0)
-    #     # set Z1 = 0
-    #     eq1 =   sy.Eq( lhs , 0 )
-    #     # all factors are save except for phi_m; solve for phi_m
-    #     phim1   =   m*sy.pi # sympy.solve can be used, but it returns the trival case
-    #     # substitute new value of phim into original Z
-    #     Z   =   Z.subs( phim , phim1 )
-    #
-    #     """ solve the implied condition that d/drho Z(rho=a,phi,t) = 0 """
-    #     # set left hand side to d/drho Z
-    #     lhs =   sy.diff( Z , rho )
-    #     # set rho = a
-    #     lhs =   lhs.subs( rho , a )
-    #     """ J' has to vanish, which means that the two terms shown in the output
-    #     must equal 0 which implies m = 0 """
-    #     # set m = 0
-    #     Z   =   Z.subs( m , 0 )
-    #
-    #     """ plug in condition Z(rho,phi,t=0) = d(1-rho/a) """
-    #     lhs =   Z.subs( t , 0 )
-    #     rhs =   d * (1 - rho/a)
-    #     """ we need to get rid of rho dependance, so exploit orthoganality of Jm(x)
-    #     http://www.math.usm.edu/lambers/mat415/lecture15.pdf
-    #     """
-    #     omega1  =   sy.symbols('omega_1',positive=True, real=True)
-    #     lhs     *=  rho * besselj(0,omega1*rho/v)
-    #     rhs     *=  rho * besselj(0,omega1*rho/v)
-    #     # integrate both sides WRT rho
-    #     lhs     =   sy.integrate( lhs , (rho,0,a) )
-    #     rhs     =   sy.integrate( rhs , (rho,0,a) )
-    #     """ looking at the output, we know that omega = omega1
-    #     and that the first term will vanish when the root is plugged in."""
-    #     eq      =   sy.Eq( lhs , rhs )
-    #     eq      =   eq.subs( omega1 , omega )
-    #     # replace a omega / v with zeta_0 (the nth root of J0)
-    #     zeta0   =   sy.symbols('zeta_0', positive=True)
-    #     eq      =   eq.subs( a * omega / v , zeta0)
-    #     A1      =   solve( eq , A )[0]
-    #     An      =   sy.lambdify( (a,d,v,omega,zeta0) , A1 , 'sympy')
-    #     # pdb.set_trace()
-    #     return An
+def run():
+    # plot_fig1()
+    # plot_fig2()
+    # exercise_51()
+    # exercise_52()
+    # problem_2()
+    my_problem()
 
-    # def A_n(n):
-    #     return An(a,d,v,omega[0,n],zeta[0,n]).evalf()
-
-    def plot_single_modes(color=cm.viridis):
-
-        home1   =   home + 'single_modes/'
-        directory_checker(home1)
-
-        def plot_single(n):
-
-            A0n =   A_n(n)
-            Z0n =   Z_t(A0n,0,n,0)
-            w   =   omega[0,n]
-
-            fig =   plt.figure()
-            ax  =   plt.gca(projection='3d')
-            ax.set_title('$\omega_{0,%s} = %.2f$' % (n,w))
-            ax.set_aspect(1)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_zticks([0])
-            surf    =   ax.plot_surface(X,Y,Z0n, cmap=color)
-            fig.colorbar(surf, cmap=color, shrink=.8)
-
-            fig.savefig(home1 + 'm_0_n_%s.png' % (n))
-            plt.close()
-
-        for n in range(nmax): plot_single(n)
-
-    def mk_movie_single_modes():
-
-        plt.close('all')
-        FFMpegWriter    =   manimation.writers['ffmpeg']
-        metadata        =   dict(title='My Problem: Circular Drum', artist='Matplotlib')
-        writer          =   FFMpegWriter(fps=10, metadata=metadata)
-
-        fig             =   plt.figure()
-        ax              =   fig.gca(projection='3d')
-
-        for n in range(nmax):
-
-            fig.clear()
-            ax              =   fig.gca(projection='3d')
-
-            period          =   2*np.pi / omega[0,n]
-            T               =   np.linspace(0,period,100)
-            A0n             =   A_n(0)
-            Z0              =   Z_t(A0n,0,n,0)
-            Zmax            =   np.max(Z0)
-
-            surf            =   ax.plot_surface(X,Y,Z0, cmap=cm.seismic, vmin=-Zmax, vmax=Zmax)
-            fig.colorbar(surf, shrink=0.5)
-
-            with writer.saving(fig, home+"MyProblem_single_modes_animation.mp4", 100):
-
-                for t in T:
-                    A   =   A_n(n)
-                    Zt  =   Z_t(A,0,n,t)
-                    ax.clear()
-                    ax.set_title('t = %.2f' % t)
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-                    ax.set_zticks([0])
-                    ax.set_zlim(-Zmax,Zmax)
-                    ax.plot_surface(X,Y,Zt, cmap=cm.seismic, vmin=-Zmax, vmax=Zmax)
-                    writer.grab_frame()
-
-    def mk_movie_multiple_modes():
-
-        plt.close('all')
-        FFMpegWriter    =   manimation.writers['ffmpeg']
-        metadata        =   dict(title='My Problem: Circular Drum', artist='Matplotlib')
-        writer          =   FFMpegWriter(fps=10, metadata=metadata)
-
-        period  =   2*np.pi / omega[0,0]
-        T       =   np.linspace(0,period*5,100*5)
-        Z0      =   np.zeros_like(X)
-        for n in range(6):
-            A   =   A_n(n)
-            Z0  +=  Z_t(A,0,n,0)
-        Zmax    =   np.max(Z0)
-
-        fig =   plt.figure()
-        ax  =   fig.gca(projection='3d')
-
-        with writer.saving(fig, home+"MyProblem_multiple_modes_animation.mp4", 100):
-
-            for t in T:
-                Zt  =   np.zeros_like(X)
-                ax.clear()
-                for n in range(6):
-                    A   =   A_n(n)
-                    Zt  +=  Z_t(A,0,n,t)
-                    ax.set_title('t = %.2f' % t)
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-                    ax.set_zticks([0])
-                    ax.set_zlim(-Zmax,Zmax)
-                    ax.plot_surface(X,Y,Zt, cmap=cm.seismic, vmin=-Zmax, vmax=Zmax)
-                    writer.grab_frame()
-
-    An  =   solve_boundary()
-    plot_single_modes()
-    mk_movie_single_modes()
-    mk_movie_multiple_modes()
+def Z_test(m,n):
+    # Z_t(Amn,m,n,t)
+    return Z_t(.1,m,n,0)
